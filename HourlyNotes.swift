@@ -74,20 +74,63 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")
         
-        let textField = NSTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 100))
+        // Create main container view
+        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 180))
+        
+        // Get recent notes for context
+        let recentNotes = getRecentNotes(limit: 2)
+        var yOffset: CGFloat = 180
+        
+        // Add recent notes section if available
+        if !recentNotes.isEmpty {
+            let recentLabel = NSTextField(labelWithString: "Recent activity:")
+            recentLabel.font = NSFont.boldSystemFont(ofSize: 11)
+            recentLabel.textColor = NSColor.secondaryLabelColor
+            recentLabel.frame = NSRect(x: 0, y: yOffset - 15, width: 400, height: 15)
+            containerView.addSubview(recentLabel)
+            yOffset -= 20
+            
+            for note in recentNotes {
+                let noteText = "[\(note.time)] \(note.text)"
+                let truncatedText = String(noteText.prefix(80)) + (noteText.count > 80 ? "..." : "")
+                
+                let noteLabel = NSTextField(labelWithString: truncatedText)
+                noteLabel.font = NSFont.systemFont(ofSize: 10)
+                noteLabel.textColor = NSColor.tertiaryLabelColor
+                noteLabel.frame = NSRect(x: 10, y: yOffset - 15, width: 380, height: 15)
+                noteLabel.lineBreakMode = .byTruncatingTail
+                containerView.addSubview(noteLabel)
+                yOffset -= 18
+            }
+            
+            // Add separator line
+            let separator = NSBox(frame: NSRect(x: 0, y: yOffset - 5, width: 400, height: 1))
+            separator.boxType = .separator
+            containerView.addSubview(separator)
+            yOffset -= 10
+        }
+        
+        // Add input field
+        let textField = NSTextView(frame: NSRect(x: 0, y: 0, width: 400, height: yOffset - 10))
         textField.isEditable = true
         textField.isSelectable = true
         textField.font = NSFont.systemFont(ofSize: 13)
         textField.isAutomaticQuoteSubstitutionEnabled = false
         textField.isRichText = false
         
-        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 300, height: 100))
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 400, height: yOffset - 10))
         scrollView.documentView = textField
         scrollView.hasVerticalScroller = true
         scrollView.autohidesScrollers = true
         scrollView.borderType = .bezelBorder
         
-        alert.accessoryView = scrollView
+        containerView.addSubview(scrollView)
+        alert.accessoryView = containerView
+        
+        // Focus on the text field
+        DispatchQueue.main.async {
+            textField.becomeFirstResponder()
+        }
         
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
@@ -241,6 +284,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return notes
     }
     
+    func getRecentNotes(limit: Int = 2) -> [(time: String, text: String)] {
+        let homeURL = FileManager.default.homeDirectoryForCurrentUser
+        let notesURL = homeURL.appendingPathComponent(".notes.txt")
+        
+        guard let content = try? String(contentsOf: notesURL, encoding: .utf8) else {
+            return []
+        }
+        
+        let formatter = ISO8601DateFormatter()
+        var allNotes: [(date: Date, time: String, text: String)] = []
+        
+        for line in content.components(separatedBy: .newlines) {
+            if let separatorIndex = line.firstIndex(of: "|") {
+                let timestampStr = String(line[..<separatorIndex]).trimmingCharacters(in: .whitespaces)
+                let noteText = String(line[line.index(after: separatorIndex)...]).trimmingCharacters(in: .whitespaces)
+                
+                if let date = formatter.date(from: timestampStr), !noteText.isEmpty {
+                    let timeFormatter = DateFormatter()
+                    timeFormatter.dateFormat = "MMM d, HH:mm"
+                    allNotes.append((date: date, time: timeFormatter.string(from: date), text: noteText))
+                }
+            }
+        }
+        
+        // Sort by date and return the most recent ones
+        let recentNotes = allNotes.sorted { $0.date > $1.date }.prefix(limit)
+        return recentNotes.map { (time: $0.time, text: $0.text) }
+    }
+    
     @objc func toggleEOD() {
         settings.isEOD.toggle()
         settings.save()
@@ -379,7 +451,43 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Skip")
         
-        let textField = NSTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 60))
+        // Create main container view
+        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 140))
+        
+        // Get recent notes for context (from before the missed time)
+        let recentNotes = getRecentNotes(limit: 2)
+        var yOffset: CGFloat = 140
+        
+        // Add recent notes section if available
+        if !recentNotes.isEmpty {
+            let recentLabel = NSTextField(labelWithString: "Recent activity (for context):")
+            recentLabel.font = NSFont.boldSystemFont(ofSize: 11)
+            recentLabel.textColor = NSColor.secondaryLabelColor
+            recentLabel.frame = NSRect(x: 0, y: yOffset - 15, width: 400, height: 15)
+            containerView.addSubview(recentLabel)
+            yOffset -= 20
+            
+            for note in recentNotes {
+                let noteText = "[\(note.time)] \(note.text)"
+                let truncatedText = String(noteText.prefix(70)) + (noteText.count > 70 ? "..." : "")
+                
+                let noteLabel = NSTextField(labelWithString: truncatedText)
+                noteLabel.font = NSFont.systemFont(ofSize: 10)
+                noteLabel.textColor = NSColor.tertiaryLabelColor
+                noteLabel.frame = NSRect(x: 10, y: yOffset - 15, width: 380, height: 15)
+                noteLabel.lineBreakMode = .byTruncatingTail
+                containerView.addSubview(noteLabel)
+                yOffset -= 18
+            }
+            
+            // Add separator line
+            let separator = NSBox(frame: NSRect(x: 0, y: yOffset - 5, width: 400, height: 1))
+            separator.boxType = .separator
+            containerView.addSubview(separator)
+            yOffset -= 10
+        }
+        
+        let textField = NSTextView(frame: NSRect(x: 0, y: 0, width: 400, height: yOffset - 10))
         textField.isEditable = true
         textField.isSelectable = true
         textField.font = NSFont.systemFont(ofSize: 13)
@@ -387,13 +495,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         textField.isRichText = false
         textField.string = "System was asleep - "
         
-        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 300, height: 60))
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 400, height: yOffset - 10))
         scrollView.documentView = textField
         scrollView.hasVerticalScroller = true
         scrollView.autohidesScrollers = true
         scrollView.borderType = .bezelBorder
         
-        alert.accessoryView = scrollView
+        containerView.addSubview(scrollView)
+        alert.accessoryView = containerView
+        
+        // Focus on the text field and position cursor after the default text
+        DispatchQueue.main.async {
+            textField.becomeFirstResponder()
+            textField.setSelectedRange(NSRange(location: textField.string.count, length: 0))
+        }
         
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
