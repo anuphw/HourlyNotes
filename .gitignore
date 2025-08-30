@@ -56,3 +56,4 @@ xcuserdata/
 dist/
 .venv/
 *.py
+CLAUDE.md
