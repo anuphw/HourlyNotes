@@ -31,16 +31,9 @@ HourlyNotes was born from this laziness-driven problem. It's my solution for pro
 
 ## 🚀 Quick Start
 
-### Download & Install
+### ⭐ Recommended: Build from Source
 
-1. **Download**: Get the latest [HourlyNotes.dmg](https://github.com/anuphw/HourlyNotes/releases/latest)
-2. **Install**: Open the DMG and drag HourlyNotes.app to Applications
-3. **Launch**: Open the app - you'll see a 📝 icon in your menu bar
-4. **Permissions**: Grant notification permissions when prompted
-
-That's it! The app will automatically prompt you every hour during work hours.
-
-### Building from Source
+For the best experience and to avoid macOS Gatekeeper issues, we recommend compiling the app yourself:
 
 ```bash
 git clone https://github.com/anuphw/HourlyNotes.git
@@ -48,6 +41,28 @@ cd HourlyNotes
 chmod +x build_native_app.sh
 ./build_native_app.sh
 open HourlyNotes.app
+```
+
+**Why build from source?**
+- No macOS "damaged app" warnings
+- Always get the latest code
+- Full control over the build process
+- Takes less than 30 seconds to compile
+
+### Alternative: Download Pre-built App
+
+⚠️ **Note**: Pre-built releases require bypassing macOS Gatekeeper since the app is not code-signed.
+
+1. **Download**: Get the latest [HourlyNotes.dmg](https://github.com/anuphw/HourlyNotes/releases/latest)
+2. **Install**: Open the DMG and drag HourlyNotes.app to Applications
+3. **Launch**: **Right-click** the app and select "Open" (don't double-click)
+4. **Confirm**: Click "Open" when macOS asks for confirmation
+5. **Permissions**: Grant notification permissions when prompted
+
+**Alternative bypass method:**
+```bash
+# Remove quarantine flag after installing to Applications
+sudo xattr -rd com.apple.quarantine /Applications/HourlyNotes.app
 ```
 
 ## 📖 How to Use
