@@ -9,6 +9,7 @@ import Cocoa
 import UserNotifications
 import Foundation
 
+
 // MARK: - Main App Delegate
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
@@ -326,57 +327,162 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func showSettings() {
         let alert = NSAlert()
         alert.messageText = "Settings"
-        alert.informativeText = "Configure work hours (24-hour format)"
+        alert.informativeText = "Configure work schedule and reminder frequency"
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")
         
-        let stackView = NSStackView(frame: NSRect(x: 0, y: 0, width: 200, height: 60))
-        stackView.orientation = .vertical
-        stackView.spacing = 10
+        // Main container
+        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 120))
         
-        // Start time
-        let startStack = NSStackView()
-        startStack.orientation = .horizontal
-        startStack.spacing = 10
+        // Main stack view
+        let mainStack = NSStackView()
+        mainStack.orientation = .vertical
+        mainStack.spacing = 16
+        mainStack.alignment = .leading
+        mainStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Create consistent label and popup widths for grid alignment
+        let labelWidth: CGFloat = 100
+        let popupWidth: CGFloat = 100
+        
+        // Start hour row
+        let startRow = NSStackView()
+        startRow.orientation = .horizontal
+        startRow.spacing = 10
+        startRow.alignment = .centerY
         
         let startLabel = NSTextField(labelWithString: "Start Hour:")
-        startLabel.frame.size.width = 80
-        let startField = NSTextField(string: "\(settings.workStartHour)")
-        startField.frame.size.width = 50
+        startLabel.alignment = .right
+        startLabel.translatesAutoresizingMaskIntoConstraints = false
+        startLabel.widthAnchor.constraint(equalToConstant: labelWidth).isActive = true
         
-        startStack.addArrangedSubview(startLabel)
-        startStack.addArrangedSubview(startField)
+        let startHourPopup = NSPopUpButton()
+        for hour in 0...23 {
+            let displayTime = hour == 0 ? "12 AM" : 
+                             hour < 12 ? "\(hour) AM" : 
+                             hour == 12 ? "12 PM" : 
+                             "\(hour - 12) PM"
+            startHourPopup.addItem(withTitle: displayTime)
+        }
+        startHourPopup.selectItem(at: settings.workStartHour)
+        startHourPopup.translatesAutoresizingMaskIntoConstraints = false
+        startHourPopup.widthAnchor.constraint(equalToConstant: popupWidth).isActive = true
         
-        // End time
-        let endStack = NSStackView()
-        endStack.orientation = .horizontal
-        endStack.spacing = 10
+        startRow.addArrangedSubview(startLabel)
+        startRow.addArrangedSubview(startHourPopup)
+        
+        // End hour row
+        let endRow = NSStackView()
+        endRow.orientation = .horizontal
+        endRow.spacing = 10
+        endRow.alignment = .centerY
         
         let endLabel = NSTextField(labelWithString: "End Hour:")
-        endLabel.frame.size.width = 80
-        let endField = NSTextField(string: "\(settings.workEndHour)")
-        endField.frame.size.width = 50
+        endLabel.alignment = .right
+        endLabel.translatesAutoresizingMaskIntoConstraints = false
+        endLabel.widthAnchor.constraint(equalToConstant: labelWidth).isActive = true
         
-        endStack.addArrangedSubview(endLabel)
-        endStack.addArrangedSubview(endField)
+        let endHourPopup = NSPopUpButton()
+        for hour in 0...23 {
+            let displayTime = hour == 0 ? "12 AM" : 
+                             hour < 12 ? "\(hour) AM" : 
+                             hour == 12 ? "12 PM" : 
+                             "\(hour - 12) PM"
+            endHourPopup.addItem(withTitle: displayTime)
+        }
+        endHourPopup.selectItem(at: settings.workEndHour)
+        endHourPopup.translatesAutoresizingMaskIntoConstraints = false
+        endHourPopup.widthAnchor.constraint(equalToConstant: popupWidth).isActive = true
         
-        stackView.addArrangedSubview(startStack)
-        stackView.addArrangedSubview(endStack)
+        endRow.addArrangedSubview(endLabel)
+        endRow.addArrangedSubview(endHourPopup)
         
-        alert.accessoryView = stackView
+        // Frequency row
+        let frequencyRow = NSStackView()
+        frequencyRow.orientation = .horizontal
+        frequencyRow.spacing = 10
+        frequencyRow.alignment = .centerY
+        
+        let freqLabel = NSTextField(labelWithString: "Frequency:")
+        freqLabel.alignment = .right
+        freqLabel.translatesAutoresizingMaskIntoConstraints = false
+        freqLabel.widthAnchor.constraint(equalToConstant: labelWidth).isActive = true
+        
+        let frequencyPopup = NSPopUpButton()
+        frequencyPopup.addItem(withTitle: "30 minutes")
+        frequencyPopup.addItem(withTitle: "1 hour")
+        frequencyPopup.addItem(withTitle: "2 hours")
+        
+        // Set current selection based on settings
+        switch settings.frequencyMinutes {
+        case 30:
+            frequencyPopup.selectItem(at: 0)
+        case 60:
+            frequencyPopup.selectItem(at: 1)
+        case 120:
+            frequencyPopup.selectItem(at: 2)
+        default:
+            frequencyPopup.selectItem(at: 1) // Default to 1 hour
+        }
+        
+        frequencyPopup.translatesAutoresizingMaskIntoConstraints = false
+        frequencyPopup.widthAnchor.constraint(equalToConstant: popupWidth).isActive = true
+        
+        frequencyRow.addArrangedSubview(freqLabel)
+        frequencyRow.addArrangedSubview(frequencyPopup)
+        
+        // Add all rows to main stack
+        mainStack.addArrangedSubview(startRow)
+        mainStack.addArrangedSubview(endRow)
+        mainStack.addArrangedSubview(frequencyRow)
+        
+        // Add main stack to container
+        containerView.addSubview(mainStack)
+        
+        NSLayoutConstraint.activate([
+            mainStack.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            mainStack.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            mainStack.topAnchor.constraint(equalTo: containerView.topAnchor),
+            mainStack.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
+        ])
+        
+        alert.accessoryView = containerView
         
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
-            if let start = Int(startField.stringValue),
-               let end = Int(endField.stringValue),
-               (0...23).contains(start) && (0...23).contains(end) {
-                settings.workStartHour = start
-                settings.workEndHour = end
-                settings.save()
-                showNotification(title: "Settings Saved", 
-                               body: "Work hours: \(start):00 - \(end):00")
+            let start = startHourPopup.indexOfSelectedItem
+            let end = endHourPopup.indexOfSelectedItem
+            
+            settings.workStartHour = start
+            settings.workEndHour = end
+            
+            // Get frequency from popup
+            switch frequencyPopup.indexOfSelectedItem {
+            case 0:
+                settings.frequencyMinutes = 30
+            case 1:
+                settings.frequencyMinutes = 60
+            case 2:
+                settings.frequencyMinutes = 120
+            default:
+                settings.frequencyMinutes = 60
             }
+            
+            settings.save()
+            rescheduleChecks()
+            
+            let startTime = start == 0 ? "12 AM" : 
+                           start < 12 ? "\(start) AM" : 
+                           start == 12 ? "12 PM" : 
+                           "\(start - 12) PM"
+            let endTime = end == 0 ? "12 AM" : 
+                         end < 12 ? "\(end) AM" : 
+                         end == 12 ? "12 PM" : 
+                         "\(end - 12) PM"
+                         
+            showNotification(title: "Settings Saved", 
+                           body: "Work hours: \(startTime) - \(endTime), Every \(settings.frequencyMinutes)min")
         }
     }
     
@@ -543,29 +649,55 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func startHourlyTimer() {
-        // Calculate next hour
         let now = Date()
         let calendar = Calendar.current
-        var components = calendar.dateComponents([.year, .month, .day, .hour], from: now)
-        components.hour! += 1
-        components.minute = 0
-        components.second = 0
+        let frequencySeconds = Double(settings.frequencyMinutes * 60)
         
-        if let nextHour = calendar.date(from: components) {
-            let timeInterval = nextHour.timeIntervalSince(now)
-            
-            // Schedule first check
-            Timer.scheduledTimer(withTimeInterval: timeInterval, repeats: false) { _ in
-                self.hourlyCheck()
-                // Then repeat every hour
-                self.timer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { _ in
-                    self.hourlyCheck()
-                }
+        // Calculate next check time based on work start time and frequency
+        let todayWorkStart = calendar.date(bySettingHour: settings.workStartHour, minute: 0, second: 0, of: now) ?? now
+        
+        var nextCheckTime = todayWorkStart
+        
+        // If we're past today's work start, find the next interval
+        if now > todayWorkStart {
+            let timePassedSinceStart = now.timeIntervalSince(todayWorkStart)
+            let intervalsPassed = Int(timePassedSinceStart / frequencySeconds)
+            nextCheckTime = todayWorkStart.addingTimeInterval(Double(intervalsPassed + 1) * frequencySeconds)
+        }
+        
+        // If the next check time is outside work hours, move to next day
+        if !isWorkHours(for: nextCheckTime) {
+            // Move to tomorrow's work start
+            if let tomorrowWorkStart = calendar.date(byAdding: .day, value: 1, to: todayWorkStart) {
+                nextCheckTime = tomorrowWorkStart
+            }
+        }
+        
+        let timeInterval = max(1, nextCheckTime.timeIntervalSince(now))
+        
+        // Schedule first check
+        Timer.scheduledTimer(withTimeInterval: timeInterval, repeats: false) { _ in
+            self.regularCheck()
+            // Then repeat at the frequency interval
+            self.timer = Timer.scheduledTimer(withTimeInterval: frequencySeconds, repeats: true) { _ in
+                self.regularCheck()
             }
         }
         
         // Update last check time
         lastCheckTime = now
+    }
+    
+    func regularCheck() {
+        if isWorkHours() && !settings.isEOD {
+            showNoteDialog()
+        }
+        lastCheckTime = Date()
+    }
+    
+    func rescheduleChecks() {
+        timer?.invalidate()
+        startHourlyTimer()
     }
     
     func hourlyCheck() {
@@ -616,7 +748,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 // MARK: - Settings Manager
 class UserSettings {
     var workStartHour: Int = 9
-    var workEndHour: Int = 18
+    var workEndHour: Int = 17
+    var frequencyMinutes: Int = 60
     var isEOD: Bool = false
     private var eodDate: Date?
     
@@ -632,7 +765,8 @@ class UserSettings {
         }
         
         workStartHour = json["workStartHour"] as? Int ?? 9
-        workEndHour = json["workEndHour"] as? Int ?? 18
+        workEndHour = json["workEndHour"] as? Int ?? 17
+        frequencyMinutes = json["frequencyMinutes"] as? Int ?? 60
         
         // Check if EOD is for today
         if let eodDateStr = json["eodDate"] as? String,
@@ -649,7 +783,8 @@ class UserSettings {
     func save() {
         var json: [String: Any] = [
             "workStartHour": workStartHour,
-            "workEndHour": workEndHour
+            "workEndHour": workEndHour,
+            "frequencyMinutes": frequencyMinutes
         ]
         
         if isEOD {
