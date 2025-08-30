@@ -4,6 +4,18 @@ A native macOS menu bar app that helps you track your daily activities with gent
 
 ![HourlyNotes Demo](https://raw.githubusercontent.com/anuphw/HourlyNotes/main/demo.gif)
 
+## 💭 The Story Behind HourlyNotes
+
+As a developer, I often find myself in deep focus mode, working for hours on end. While this flow state is great for productivity, I realized I was losing track of all the small but meaningful progress I made throughout the day. 
+
+By the time evening came around, when someone asked "What did you accomplish today?" or when I needed to write my daily standup notes, I'd struggle to remember. Did I fix that authentication bug before or after lunch? When did I finish the API refactoring? What was that brilliant insight I had about the database optimization?
+
+All these small victories, incremental improvements, and "aha!" moments were getting lost in the continuous stream of work. I tried various productivity apps, but they were either too complex, required too much setup, or felt intrusive to my workflow.
+
+That's when I realized I needed something simple: just a gentle tap on the shoulder every hour asking, "Hey, what did you just accomplish?" Nothing fancy, nothing overwhelming - just a moment to capture the small wins and progress that make up our days.
+
+HourlyNotes was born from this need. It's the app I wish I had during those long coding sessions - a quiet companion that helps me remember not just what I did, but also appreciate how much I actually accomplish in a day.
+
 ## ✨ Features
 
 - **📱 Native macOS App**: Built with Swift/Cocoa - no Python or external dependencies
