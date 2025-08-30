@@ -14,6 +14,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var timer: Timer?
     var settings = UserSettings()
+    var lastCheckTime: Date?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Setup menu bar item
@@ -28,11 +29,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Request notification permissions
         requestNotificationPermissions()
         
+        // Setup sleep/wake notifications
+        setupSleepWakeNotifications()
+        
         // Start hourly timer
         startHourlyTimer()
         
         // Load settings
         settings.load()
+        
+        // Check for missed hours on startup
+        checkForMissedHours()
     }
     
     @objc func showMenu() {
@@ -301,6 +308,125 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
+    func setupSleepWakeNotifications() {
+        // Listen for sleep/wake events
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(systemWillSleep),
+            name: NSWorkspace.willSleepNotification,
+            object: nil
+        )
+        
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(systemDidWake),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+    }
+    
+    @objc func systemWillSleep() {
+        // Store the time when system goes to sleep
+        lastCheckTime = Date()
+    }
+    
+    @objc func systemDidWake() {
+        // Check for missed hours when system wakes up
+        checkForMissedHours()
+        
+        // Restart the timer
+        timer?.invalidate()
+        startHourlyTimer()
+    }
+    
+    func checkForMissedHours() {
+        guard let lastCheck = lastCheckTime else {
+            // First run, just set current time
+            lastCheckTime = Date()
+            return
+        }
+        
+        let now = Date()
+        let hoursSinceLastCheck = Calendar.current.dateComponents([.hour], from: lastCheck, to: now).hour ?? 0
+        
+        // If more than 1 hour has passed, ask about missed hours
+        if hoursSinceLastCheck > 1 {
+            let calendar = Calendar.current
+            
+            // Check each missed hour to see if it was during work hours
+            for i in 1..<hoursSinceLastCheck {
+                if let missedHour = calendar.date(byAdding: .hour, value: i, to: lastCheck) {
+                    // Check if this missed hour was during work hours
+                    if isWorkHours(for: missedHour) && !settings.isEOD {
+                        showMissedHourDialog(for: missedHour)
+                    }
+                }
+            }
+        }
+        
+        lastCheckTime = now
+    }
+    
+    func showMissedHourDialog(for date: Date) {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        let timeString = formatter.string(from: date)
+        
+        let alert = NSAlert()
+        alert.messageText = "Missed Check-in"
+        alert.informativeText = "What were you working on around \(timeString)?\n(Your system was asleep or the app wasn't running)"
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Skip")
+        
+        let textField = NSTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 60))
+        textField.isEditable = true
+        textField.isSelectable = true
+        textField.font = NSFont.systemFont(ofSize: 13)
+        textField.isAutomaticQuoteSubstitutionEnabled = false
+        textField.isRichText = false
+        textField.string = "System was asleep - "
+        
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 300, height: 60))
+        scrollView.documentView = textField
+        scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = true
+        scrollView.borderType = .bezelBorder
+        
+        alert.accessoryView = scrollView
+        
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            let text = textField.string.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty {
+                saveNoteWithCustomTime(text, time: date)
+            }
+        }
+    }
+    
+    func saveNoteWithCustomTime(_ text: String, time: Date) {
+        let timestamp = ISO8601DateFormatter().string(from: time)
+        let noteEntry = "\(timestamp) | \(text)\n"
+        
+        let homeURL = FileManager.default.homeDirectoryForCurrentUser
+        let notesURL = homeURL.appendingPathComponent(".notes.txt")
+        
+        do {
+            if let data = noteEntry.data(using: .utf8) {
+                if FileManager.default.fileExists(atPath: notesURL.path) {
+                    let fileHandle = try FileHandle(forWritingTo: notesURL)
+                    fileHandle.seekToEndOfFile()
+                    fileHandle.write(data)
+                    fileHandle.closeFile()
+                } else {
+                    try data.write(to: notesURL)
+                }
+            }
+        } catch {
+            print("Error saving backdated note: \(error)")
+        }
+    }
+    
     func startHourlyTimer() {
         // Calculate next hour
         let now = Date()
@@ -322,6 +448,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
+        
+        // Update last check time
+        lastCheckTime = now
     }
     
     func hourlyCheck() {
@@ -331,8 +460,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func isWorkHours() -> Bool {
+        return isWorkHours(for: Date())
+    }
+    
+    func isWorkHours(for date: Date) -> Bool {
         let calendar = Calendar.current
-        let hour = calendar.component(.hour, from: Date())
+        let hour = calendar.component(.hour, from: date)
         
         if settings.workStartHour <= settings.workEndHour {
             return hour >= settings.workStartHour && hour < settings.workEndHour
