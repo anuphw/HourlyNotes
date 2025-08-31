@@ -8,6 +8,7 @@
 import Cocoa
 import UserNotifications
 import Foundation
+import ServiceManagement
 
 
 // MARK: - Main App Delegate
@@ -38,6 +39,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Load settings
         settings.load()
+        
+        // Sync launch at login state with system
+        syncLaunchAtLoginState()
         
         // Check for missed hours on startup
         checkForMissedHours()
@@ -333,7 +337,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         alert.addButton(withTitle: "Cancel")
         
         // Main container
-        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 120))
+        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 160))
         
         // Main stack view
         let mainStack = NSStackView()
@@ -432,10 +436,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         frequencyRow.addArrangedSubview(freqLabel)
         frequencyRow.addArrangedSubview(frequencyPopup)
         
+        // Auto-start row
+        let autoStartRow = NSStackView()
+        autoStartRow.orientation = .horizontal
+        autoStartRow.spacing = 10
+        autoStartRow.alignment = .centerY
+        
+        let autoStartLabel = NSTextField(labelWithString: "Auto-start:")
+        autoStartLabel.alignment = .right
+        autoStartLabel.translatesAutoresizingMaskIntoConstraints = false
+        autoStartLabel.widthAnchor.constraint(equalToConstant: labelWidth).isActive = true
+        
+        let autoStartCheckbox = NSButton(checkboxWithTitle: "Launch at login", target: nil, action: nil)
+        autoStartCheckbox.state = settings.launchAtLogin ? .on : .off
+        
+        autoStartRow.addArrangedSubview(autoStartLabel)
+        autoStartRow.addArrangedSubview(autoStartCheckbox)
+        
         // Add all rows to main stack
         mainStack.addArrangedSubview(startRow)
         mainStack.addArrangedSubview(endRow)
         mainStack.addArrangedSubview(frequencyRow)
+        mainStack.addArrangedSubview(autoStartRow)
         
         // Add main stack to container
         containerView.addSubview(mainStack)
@@ -467,6 +489,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 settings.frequencyMinutes = 120
             default:
                 settings.frequencyMinutes = 60
+            }
+            
+            // Handle auto-start setting
+            let newAutoStartState = autoStartCheckbox.state == .on
+            if settings.launchAtLogin != newAutoStartState {
+                settings.launchAtLogin = newAutoStartState
+                updateLaunchAtLogin(enabled: newAutoStartState)
             }
             
             settings.save()
@@ -700,6 +729,46 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         startHourlyTimer()
     }
     
+    func syncLaunchAtLoginState() {
+        if #available(macOS 13.0, *) {
+            // Check current status and sync with settings
+            let status = SMAppService.mainApp.status
+            let isEnabled = (status == .enabled)
+            if settings.launchAtLogin != isEnabled {
+                settings.launchAtLogin = isEnabled
+                settings.save()
+            }
+        }
+    }
+    
+    func updateLaunchAtLogin(enabled: Bool) {
+        if #available(macOS 13.0, *) {
+            // Use the modern Service Management API for macOS 13+
+            do {
+                if enabled {
+                    try SMAppService.mainApp.register()
+                } else {
+                    try SMAppService.mainApp.unregister()
+                }
+            } catch {
+                print("Failed to update launch at login: \(error)")
+                // Show error to user
+                let alert = NSAlert()
+                alert.messageText = "Auto-start Error"
+                alert.informativeText = "Failed to update auto-start setting: \(error.localizedDescription)"
+                alert.alertStyle = .warning
+                alert.runModal()
+            }
+        } else {
+            // For older macOS versions, inform user to add manually
+            let alert = NSAlert()
+            alert.messageText = "Auto-start Not Available"
+            alert.informativeText = "Auto-start requires macOS 13.0 or later. Please add HourlyNotes to Login Items manually in System Preferences."
+            alert.alertStyle = .informational
+            alert.runModal()
+        }
+    }
+    
     func hourlyCheck() {
         if isWorkHours() && !settings.isEOD {
             showNoteDialog()
@@ -751,6 +820,7 @@ class UserSettings {
     var workEndHour: Int = 17
     var frequencyMinutes: Int = 60
     var isEOD: Bool = false
+    var launchAtLogin: Bool = false
     private var eodDate: Date?
     
     private var settingsURL: URL {
@@ -767,6 +837,7 @@ class UserSettings {
         workStartHour = json["workStartHour"] as? Int ?? 9
         workEndHour = json["workEndHour"] as? Int ?? 17
         frequencyMinutes = json["frequencyMinutes"] as? Int ?? 60
+        launchAtLogin = json["launchAtLogin"] as? Bool ?? false
         
         // Check if EOD is for today
         if let eodDateStr = json["eodDate"] as? String,
@@ -784,7 +855,8 @@ class UserSettings {
         var json: [String: Any] = [
             "workStartHour": workStartHour,
             "workEndHour": workEndHour,
-            "frequencyMinutes": frequencyMinutes
+            "frequencyMinutes": frequencyMinutes,
+            "launchAtLogin": launchAtLogin
         ]
         
         if isEOD {
